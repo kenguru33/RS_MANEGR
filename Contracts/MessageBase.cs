@@ -1,6 +1,6 @@
 ﻿namespace Contracts;
 
-public abstract class StationMessageBase
+public abstract class MessageBase
 {
     public int SequenceNumber { get; set; }
 }

@@ -1,7 +1,8 @@
 ﻿namespace Contracts;
 
-public class StationCreated : StationMessageBase
+public class Updated : MessageBase
 {
     public Guid Id { get; set; }
     public string Name { get; set; }
+    
 }

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using StationManager.Data;
 using StationManager.Dtos;
 using StationManager.Entities;
+using StationManager.Services;
 
 namespace StationManager.Controllers;
 
@@ -12,11 +13,13 @@ namespace StationManager.Controllers;
 [Route("[controller]")]
 public class StationController : Controller
 {
+    private readonly IStationService _stationService;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly StationDbContext _stationDbContext;
 
-    public StationController(IPublishEndpoint publishEndpoint, StationDbContext stationDbContext)
+    public StationController(IStationService stationService, IPublishEndpoint publishEndpoint, StationDbContext stationDbContext)
     {
+        _stationService = stationService;
         _publishEndpoint = publishEndpoint;
         _stationDbContext = stationDbContext;
     }
@@ -30,23 +33,17 @@ public class StationController : Controller
 
     // POST
     [HttpPost(Name = "CreateStation")]
-    public async Task<IActionResult> CreateStation([FromBody] CreateStationDto createStationDto)
+    public async Task<ActionResult<StationResponseDto>> CreateStation([FromBody] CreateStationDto createStationDto)
     {
-        var station = new Station()
+        try
         {
-            Id = new Guid(),
-            Name = createStationDto.Name
-        };
-        await _publishEndpoint.Publish(new StationCreated()
+            var stationResponseDto = await _stationService.CreateStation(createStationDto);
+            return Ok(stationResponseDto);
+        }
+        catch (Exception exception)
         {
-            Id = station.Id,
-            Name = station.Name,
-            SequenceNumber = await GetStationSequenceNumber(station)
-        });
-        _stationDbContext.Add(station);
-        var result = await _stationDbContext.SaveChangesAsync() > 0;
-        if (!result) return BadRequest("Could not save to database!");
-        return Ok(station);
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPut("api/[action]/{id}")]
@@ -60,7 +57,7 @@ public class StationController : Controller
 
         station.Name = updateStationDto.Name;
         
-        await _publishEndpoint.Publish<StationUpdated>(new StationCreated()
+        await _publishEndpoint.Publish<Updated>(new Created()
         {
             Id = station.Id,
             Name = station.Name,

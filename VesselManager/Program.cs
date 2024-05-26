@@ -1,5 +1,7 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using VesselManager.Consumers;
+using VesselManager.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,14 +12,25 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var configuration = builder.Configuration;
+builder.Services.AddDbContext<VesselDbContext>(options =>
+{
+     options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+});
+
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumersFromNamespaceContaining<StationCreatedConsumer>();
     x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("vessel", false));
+    x.AddEntityFrameworkOutbox<VesselDbContext>(o =>
+    {
+        // check if we have anything in outbox every 10s
+        o.QueryDelay = TimeSpan.FromSeconds(10);
+        o.UsePostgres();
+        o.UseBusOutbox();
+    });
     x.UsingRabbitMq((context, cfg) =>
     {
-        // global retry policy
-        cfg.UseMessageRetry(r => r.Interval(5, TimeSpan.FromSeconds(5)));
         cfg.ConfigureEndpoints(context);
     });
 });
